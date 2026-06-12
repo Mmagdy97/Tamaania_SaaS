@@ -189,13 +189,13 @@ export default function DashboardLayout({
 
       {/* Main Content Area */}
       <main className="flex-1 lg:mr-80 min-h-screen">
-        <header className="sticky top-0 z-30 flex h-20 md:h-24 items-center justify-between border-b bg-white/80 px-4 md:px-10 backdrop-blur-xl">
-          <div className="flex items-center gap-4">
+        <header className="sticky top-0 z-30 flex h-16 md:h-24 items-center justify-between border-b bg-white/80 px-4 md:px-10 backdrop-blur-xl">
+          <div className="flex items-center gap-3 md:gap-4">
             {/* Mobile Menu Trigger */}
             <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
               <SheetTrigger asChild>
-                <Button variant="ghost" size="icon" className="lg:hidden rounded-xl h-11 w-11 hover:bg-slate-100">
-                  <Menu className="h-6 w-6 text-slate-600" />
+                <Button variant="ghost" size="icon" className="lg:hidden rounded-xl h-10 w-10 hover:bg-slate-100">
+                  <Menu className="h-5 w-5 md:h-6 md:w-6 text-slate-600" />
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="p-0 w-80 border-none shadow-2xl">
@@ -227,20 +227,20 @@ export default function DashboardLayout({
             </Sheet>
 
             <div className="flex flex-col gap-0.5">
-              <h2 className="text-lg md:text-2xl font-headline font-bold text-slate-900 leading-none truncate max-w-[150px] md:max-w-none">
+              <h2 className="text-base md:text-2xl font-headline font-bold text-slate-900 leading-none truncate max-w-[120px] sm:max-w-[180px] md:max-w-none">
                 أهلاً، {profile?.displayName?.split(' ')[0] || 'مستخدم'} 👋
               </h2>
-              <p className="text-[10px] md:text-xs text-slate-400 font-medium">بوابة الرعاية الصحية الآمنة</p>
+              <p className="text-[9px] md:text-xs text-slate-400 font-medium">بوابة الرعاية الصحية الآمنة</p>
             </div>
           </div>
           
-          <div className="flex items-center gap-2 md:gap-3">
-             <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 md:h-11 md:w-11 bg-slate-50 hover:bg-slate-100 relative">
-               <Bell className="h-5 w-5 text-slate-500" />
-               <span className="absolute top-2.5 right-2.5 md:top-3 md:right-3 h-2 w-2 bg-rose-500 rounded-full border-2 border-white"></span>
+          <div className="flex items-center gap-1.5 md:gap-3">
+             <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 md:h-11 md:w-11 bg-slate-50 hover:bg-slate-100 relative">
+               <Bell className="h-4 w-4 md:h-5 md:w-5 text-slate-500" />
+               <span className="absolute top-2 right-2 md:top-3 md:right-3 h-2 w-2 bg-rose-500 rounded-full border-2 border-white"></span>
              </Button>
-             <Button variant="ghost" size="icon" className="rounded-xl h-10 w-10 md:h-11 md:w-11 bg-slate-50 hover:bg-slate-100">
-               <UserCircle className="h-5 w-5 text-slate-500" />
+             <Button variant="ghost" size="icon" className="rounded-xl h-9 w-9 md:h-11 md:w-11 bg-slate-50 hover:bg-slate-100">
+               <UserCircle className="h-4 w-4 md:h-5 md:w-5 text-slate-500" />
              </Button>
           </div>
         </header>

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo } from "react";
@@ -24,6 +23,7 @@ import { useRouter } from "next/navigation";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { Skeleton } from "@/components/ui/skeleton";
+import { demoTherapists } from "@/lib/mock-data";
 
 export default function TherapistsPage() {
   const router = useRouter();
@@ -32,35 +32,23 @@ export default function TherapistsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingTherapist, setEditingTherapist] = useState<any>(null);
 
-  // Optimized query with memoization
   const therapistsQuery = useMemoFirebase(() => {
     if (!db) return null;
     return query(collection(db, "therapists"), orderBy("name", "asc"), limit(24));
   }, [db]);
 
-  const { data: therapists, loading } = useCollection(therapistsQuery);
+  const { data: dbTherapists, loading } = useCollection(therapistsQuery);
 
-  const filtered = therapists?.filter(t => 
+  const allTherapists = useMemo(() => {
+    const items = dbTherapists || [];
+    if (items.length === 0 && !loading) return demoTherapists;
+    return [...items, ...demoTherapists.slice(0, 2)];
+  }, [dbTherapists, loading]);
+
+  const filtered = allTherapists.filter(t => 
     t.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     t.specialization.toLowerCase().includes(searchTerm.toLowerCase())
   );
-
-  const handleDelete = async (id: string) => {
-    if (!db || !confirm("هل أنت متأكد من حذف هذا الأخصائي؟")) return;
-    
-    const docRef = doc(db, "therapists", id);
-    deleteDoc(docRef).catch(async (err) => {
-      errorEmitter.emit("permission-error", new FirestorePermissionError({
-        path: docRef.path,
-        operation: "delete"
-      }));
-    });
-  };
-
-  const openEditForm = (therapist: any) => {
-    setEditingTherapist(therapist);
-    setIsFormOpen(true);
-  };
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500">
@@ -90,44 +78,32 @@ export default function TherapistsPage() {
         />
       </div>
 
-      {loading && !therapists ? (
+      {loading && allTherapists.length === 0 ? (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i} className="overflow-hidden">
-              <CardHeader className="bg-secondary/30 pb-4">
-                <Skeleton className="h-6 w-3/4 mb-2" />
-                <Skeleton className="h-4 w-1/4" />
-              </CardHeader>
-              <CardContent className="pt-6 space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-5/6" />
-                <Skeleton className="h-4 w-4/6" />
-                <div className="pt-4 border-t flex justify-between">
-                  <Skeleton className="h-8 w-20" />
-                  <Skeleton className="h-8 w-24" />
-                </div>
-              </CardContent>
-            </Card>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className="h-64 w-full rounded-2xl" />
           ))}
         </div>
-      ) : filtered?.length === 0 ? (
+      ) : filtered.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/20">
           <Briefcase className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-          <p className="text-muted-foreground font-medium">لم يتم العثور على أخصائيين يطابقون بحثك.</p>
+          <p className="text-muted-foreground font-medium">لم يتم العثور على أخصائيين.</p>
         </div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          {filtered?.map((t) => (
+          {filtered.map((t) => (
             <Card key={t.id} className="overflow-hidden group hover:border-primary/50 hover:shadow-lg transition-all duration-300">
               <CardHeader className="bg-secondary/30 pb-4">
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
-                    <CardTitle className="text-lg text-primary group-hover:text-primary/80">{t.name}</CardTitle>
+                    <CardTitle className="text-lg text-primary group-hover:text-primary/80">
+                      {t.name} {t.id.startsWith('t') && <span className="text-[8px] font-normal opacity-30">(Demo)</span>}
+                    </CardTitle>
                     <Badge variant="outline" className="text-[10px] font-semibold text-muted-foreground bg-white/50">
                       {t.specialization}
                     </Badge>
                   </div>
-                  <Badge variant={t.availability === 'متاح' ? 'default' : t.availability === 'في جلسة' ? 'secondary' : 'outline'}>
+                  <Badge className={`text-[10px] ${t.availability === 'متاح' ? 'bg-emerald-500' : 'bg-amber-500'}`}>
                     {t.availability}
                   </Badge>
                 </div>
@@ -139,41 +115,19 @@ export default function TherapistsPage() {
                     <span className="truncate">{t.email}</span>
                   </div>
                   <div className="flex items-center gap-2.5 text-slate-600">
-                    <Phone className="h-3.5 w-3.5 text-primary/60" />
-                    <span>{t.phone}</span>
-                  </div>
-                  <div className="flex items-center gap-2.5 text-slate-600">
                     <Briefcase className="h-3.5 w-3.5 text-primary/60" />
                     <span>{t.experienceYears} سنوات خبرة مهنية</span>
                   </div>
                 </div>
                 
                 <div className="pt-4 flex items-center justify-between border-t gap-2 mt-2">
-                  <div className="flex gap-1.5">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-primary hover:bg-primary/5"
-                      onClick={() => openEditForm(t)}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-8 w-8 text-muted-foreground hover:text-destructive hover:bg-destructive/5"
-                      onClick={() => handleDelete(t.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
                   <Button 
                     size="sm" 
                     variant="outline" 
-                    className="h-8 gap-2 border-primary/20 hover:border-primary hover:bg-primary/5"
+                    className="w-full h-9 gap-2 border-primary/20 hover:border-primary hover:bg-primary/5"
                     onClick={() => router.push(`/dashboard/therapists/${t.id}`)}
                   >
-                    <Eye className="h-3.5 w-3.5" /> عرض الملف
+                    <Eye className="h-3.5 w-3.5" /> عرض الملف الشخصي
                   </Button>
                 </div>
               </CardContent>

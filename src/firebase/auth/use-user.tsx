@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -15,13 +14,11 @@ export interface UserProfile {
   displayName?: string;
   email: string;
   centerId: string;
-  linkedEntityId?: string;
+  linkedEntityId?: string; // لولي الأمر: معرف الطفل / للأخصائي: معرف الأخصائي
 }
 
 /**
  * هوك مخصص لإدارة حالة المستخدم وصلاحياته
- * في بيئة الإنتاج، يجب التأكد من أن حقل role يأتي من Firestore
- * ولا يمكن تعديله من قبل المستخدم في localStorage
  */
 export function useUser() {
   const auth = useAuth();
@@ -38,13 +35,17 @@ export function useUser() {
       try {
         const mockUser = JSON.parse(mockSession);
         setUser(mockUser);
+        
+        // ربط حساب ولي الأمر التجريبي بطفل محدد (أحمد محمد علي - c1)
+        const linkedId = mockUser.role === 'parent' ? 'c1' : mockUser.linkedEntityId;
+
         setProfile({
           uid: mockUser.uid,
           role: mockUser.role as UserRole,
           displayName: mockUser.displayName,
           email: mockUser.email,
           centerId: mockUser.centerId || (mockUser.role === 'super_admin' ? 'global' : 'demo-center-1'), 
-          linkedEntityId: mockUser.linkedEntityId
+          linkedEntityId: linkedId
         });
         setLoading(false);
         return;
@@ -53,12 +54,10 @@ export function useUser() {
       }
     }
 
-    // الربط مع Firebase Auth الحقيقي (لبيئة الإنتاج)
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         setUser(firebaseUser);
         try {
-          // جلب البروفايل من Firestore لضمان الأمان وعدم تزوير الأدوار
           const profileDoc = await getDoc(doc(db, 'users', firebaseUser.uid));
           if (profileDoc.exists()) {
             setProfile(profileDoc.data() as UserProfile);
@@ -76,5 +75,12 @@ export function useUser() {
     return () => unsubscribe();
   }, [auth, db]);
 
-  return { user, profile, role: profile?.role, centerId: profile?.centerId, loading };
+  return { 
+    user, 
+    profile, 
+    role: profile?.role, 
+    centerId: profile?.centerId, 
+    linkedEntityId: profile?.linkedEntityId,
+    loading 
+  };
 }

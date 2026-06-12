@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -18,7 +17,7 @@ import {
   FileText,
   Loader2,
   AlertTriangle,
-  Download
+  ShieldAlert
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import {
@@ -32,6 +31,7 @@ import { useRouter } from "next/navigation";
 import { errorEmitter } from "@/firebase/error-emitter";
 import { FirestorePermissionError } from "@/firebase/errors";
 import { Skeleton } from "@/components/ui/skeleton";
+import { demoChildren, demoReports } from "@/lib/mock-data";
 
 export default function ReportsPage() {
   const router = useRouter();
@@ -41,19 +41,19 @@ export default function ReportsPage() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingReport, setEditingReport] = useState<any>(null);
 
-  const isParent = profile?.role === 'Parent';
+  const isParent = profile?.role === 'parent';
 
   const reportsQuery = useMemoFirebase(() => {
     if (!db) return null;
     
     let q = collection(db, "reports");
     
-    // Parent sees only their child's reports
+    // ولي الأمر يرى فقط تقارير طفله المرتبط به
     if (isParent && profile?.linkedEntityId) {
       return query(
         q, 
         where("childId", "==", profile.linkedEntityId),
-        orderBy("createdAt", "desc"),
+        orderBy("sessionDate", "desc"),
         limit(50)
       );
     }
@@ -61,7 +61,7 @@ export default function ReportsPage() {
     return query(q, orderBy("createdAt", "desc"), limit(50));
   }, [db, isParent, profile?.linkedEntityId]);
 
-  const { data: reports, loading } = useCollection(reportsQuery);
+  const { data: dbReports, loading } = useCollection(reportsQuery);
   
   const childrenCollectionQuery = useMemoFirebase(() => {
     if (!db) return null;
@@ -70,10 +70,12 @@ export default function ReportsPage() {
   const { data: children } = useCollection(childrenCollectionQuery);
 
   const getChildInfo = (id: string) => {
-    return children?.find(c => c.id === id);
+    return children?.find(c => c.id === id) || demoChildren.find(c => c.id === id);
   };
 
-  const filtered = reports?.filter(r => {
+  const allReports = dbReports && dbReports.length > 0 ? dbReports : (isParent ? [] : demoReports);
+
+  const filtered = allReports.filter(r => {
     const child = getChildInfo(r.childId);
     return child?.fullName.toLowerCase().includes(searchTerm.toLowerCase()) ||
     r.evaluation.toLowerCase().includes(searchTerm.toLowerCase());
@@ -98,10 +100,10 @@ export default function ReportsPage() {
   return (
     <div className="space-y-6 animate-in fade-in duration-500" dir="rtl">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">{isParent ? 'تقارير طفلي' : 'تقارير الجلسات'}</h1>
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold font-headline">{isParent ? 'تقارير طفلي المعتمدة' : 'تقارير الجلسات'}</h1>
           <p className="text-muted-foreground">
-            {isParent ? 'متابعة سجل التقدم والتقييمات الخاصة بطفلك.' : 'توثيق ومتابعة تقدم الأطفال في الجلسات العلاجية.'}
+            {isParent ? 'متابعة سجل التقدم والتقييمات الدورية الخاصة بطفلك بكل سرية.' : 'توثيق ومتابعة تقدم الأطفال في الجلسات العلاجية.'}
           </p>
         </div>
         {!isParent && (
@@ -120,7 +122,7 @@ export default function ReportsPage() {
       <div className="flex items-center gap-2 max-w-sm rounded-lg border bg-card px-3 py-1 shadow-sm">
         <Search className="h-4 w-4 text-muted-foreground" />
         <Input 
-          placeholder="ابحث باسم الطفل أو التقييم..." 
+          placeholder={isParent ? "بحث في التقييمات..." : "ابحث باسم الطفل أو التقييم..."}
           className="border-0 focus-visible:ring-0 shadow-none bg-transparent h-9 text-right"
           dir="rtl"
           value={searchTerm}
@@ -128,7 +130,7 @@ export default function ReportsPage() {
         />
       </div>
 
-      {loading && !reports ? (
+      {loading && !dbReports ? (
         <div className="grid gap-4">
           {Array.from({ length: 4 }).map((_, i) => (
             <Skeleton key={i} className="h-24 w-full rounded-xl" />
@@ -137,7 +139,7 @@ export default function ReportsPage() {
       ) : filtered?.length === 0 ? (
         <div className="text-center py-20 border-2 border-dashed rounded-xl bg-muted/20">
           <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-          <p className="text-muted-foreground font-medium">لا توجد تقارير مطابقة للبحث.</p>
+          <p className="text-muted-foreground font-medium">لا توجد تقارير متاحة حالياً.</p>
         </div>
       ) : (
         <div className="grid gap-4">
@@ -146,15 +148,15 @@ export default function ReportsPage() {
             const isLowSessions = child && child.remainingSessions < 3;
 
             return (
-              <Card key={report.id} className={`group hover:border-primary/50 transition-all border-r-4 ${isLowSessions ? 'border-r-rose-500 bg-rose-50/10' : 'border-r-primary/20'}`}>
+              <Card key={report.id} className={`group hover:border-primary/50 transition-all border-r-4 ${isLowSessions && !isParent ? 'border-r-rose-500 bg-rose-50/10' : 'border-r-primary/20'}`}>
                 <CardContent className="p-4 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="flex items-center gap-4 flex-1">
-                    <div className={`p-2 rounded-full shrink-0 ${isLowSessions ? 'bg-rose-100 text-rose-600' : 'bg-primary/10 text-primary'}`}>
+                    <div className={`p-2 rounded-full shrink-0 ${isLowSessions && !isParent ? 'bg-rose-100 text-rose-600' : 'bg-primary/10 text-primary'}`}>
                       <FileText className="h-6 w-6" />
                     </div>
                     <div className="space-y-1 text-right">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <h3 className="font-bold text-lg text-primary">{child?.fullName || "جارِ التحميل..."}</h3>
+                        <h3 className="font-bold text-lg text-primary">{child?.fullName || "ملف الطفل"}</h3>
                         <Badge variant={report.status === 'نشط' ? 'default' : 'secondary'} className="text-[10px]">
                           {report.status}
                         </Badge>
@@ -165,7 +167,7 @@ export default function ReportsPage() {
                         )}
                         {isParent && (
                           <Badge variant="outline" className="text-[10px] text-accent font-bold">
-                            تاريخ الجلسة: {report.sessionDate}
+                            موثق بتاريخ: {report.sessionDate}
                           </Badge>
                         )}
                       </div>
@@ -184,7 +186,7 @@ export default function ReportsPage() {
 
                   <div className="flex items-center gap-2 shrink-0 w-full md:w-auto justify-end">
                     <Button variant="outline" size="sm" className="gap-2" onClick={() => router.push(`/dashboard/reports/${report.id}`)}>
-                      <Eye className="h-4 w-4" /> عرض {isParent && 'وتحميل'}
+                      <Eye className="h-4 w-4" /> عرض التقرير الكامل {isParent && 'والتحميل'}
                     </Button>
                     {!isParent && (
                       <DropdownMenu dir="rtl">
@@ -211,11 +213,13 @@ export default function ReportsPage() {
         </div>
       )}
 
-      <ReportFormDialog 
-        open={isFormOpen} 
-        onOpenChange={setIsFormOpen} 
-        report={editingReport} 
-      />
+      {!isParent && (
+        <ReportFormDialog 
+          open={isFormOpen} 
+          onOpenChange={setIsFormOpen} 
+          report={editingReport} 
+        />
+      )}
     </div>
   );
 }

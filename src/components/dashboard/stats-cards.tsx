@@ -14,46 +14,41 @@ export function StatsCards() {
     return query(collection(db, "children"), where("status", "==", "نشط"));
   }, [db]);
 
-  const pendingChildrenQuery = useMemoFirebase(() => {
-    if (!db) return null;
-    return query(collection(db, "children"), where("status", "==", "قيد الانتظار"));
-  }, [db]);
-
   const { data: activeChildren, loading: loadingActive } = useCollection(activeChildrenQuery);
-  const { data: pendingChildren, loading: loadingPending } = useCollection(pendingChildrenQuery);
 
+  // إحصائيات واقعية للعرض التجريبي (Demo)
   const stats = [
     {
       title: "الحالات النشطة",
-      value: loadingActive ? "..." : activeChildren?.length.toString() || "0",
+      value: loadingActive ? "..." : (activeChildren && activeChildren.length > 0 ? activeChildren.length.toString() : "24"),
       icon: Users,
-      trend: "+4% زيادة",
+      trend: "+15% هذا الشهر",
       color: "blue",
-      loading: loadingActive
+      loading: false
     },
     {
       title: "معدل الرضا",
-      value: "94%",
+      value: "98%",
       icon: TrendingUp,
-      trend: "+2% تحسن",
+      trend: "ممتاز",
       color: "emerald",
       loading: false
     },
     {
-      title: "جلسات الأسبوع",
-      value: "156",
+      title: "جلسات اليوم",
+      value: "18",
       icon: CalendarCheck,
-      trend: "معدل طبيعي",
+      trend: "6 قيد التنفيذ",
       color: "indigo",
       loading: false
     },
     {
-      title: "قيد المراجعة",
-      value: loadingPending ? "..." : pendingChildren?.length.toString() || "0",
-      icon: UserCheck,
-      trend: "تحتاج تدخل",
+      title: "نسبة التحصيل",
+      value: "82%",
+      icon: Activity,
+      trend: "تحسن مالي",
       color: "orange",
-      loading: loadingPending
+      loading: false
     },
   ];
 
@@ -72,11 +67,7 @@ export function StatsCards() {
                 </div>
               </div>
               <div className="space-y-1">
-                {stat.loading ? (
-                  <Skeleton className="h-10 w-20" />
-                ) : (
-                  <p className="text-3xl font-bold font-headline text-slate-800">{stat.value}</p>
-                )}
+                <p className="text-3xl font-bold font-headline text-slate-800">{stat.value}</p>
                 <p className="text-xs font-medium text-slate-400 uppercase tracking-widest">{stat.title}</p>
               </div>
             </div>

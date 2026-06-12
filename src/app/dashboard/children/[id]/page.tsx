@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useMemo, useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useDoc, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { useDoc, useFirestore, useCollection, useMemoFirebase, useUser } from "@/firebase";
 import { doc, collection, query, where, orderBy, limit } from "firebase/firestore";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -24,38 +23,55 @@ import {
   Activity,
   AlertTriangle,
   History,
-  Plus
+  Plus,
+  ShieldAlert
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Progress } from "@/components/ui/progress";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PaymentDialog } from "@/components/billing/payment-dialog";
+import { demoChildren } from "@/lib/mock-data";
 
 export default function ChildDetailsPage() {
   const { id } = useParams();
   const router = useRouter();
   const db = useFirestore();
+  const { profile } = useUser();
   const [formattedDate, setFormattedDate] = useState<string | null>(null);
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
 
+  const isParent = profile?.role === 'parent';
+  const isAuthorized = !isParent || profile?.linkedEntityId === id;
+
   const docRef = useMemo(() => {
-    if (!db || !id) return null;
+    if (!db || !id || !isAuthorized) return null;
     return doc(db, "children", id as string);
-  }, [db, id]);
+  }, [db, id, isAuthorized]);
 
-  const { data: child, loading } = useDoc(docRef);
+  const { data: dbChild, loading } = useDoc(docRef);
 
-  // Load Payment History for this child
+  // منطق هجين للبيانات (ديمو + حقيقي)
+  const child = useMemo(() => {
+    if (dbChild) return dbChild;
+    if (!loading && !dbChild && isAuthorized) {
+        return demoChildren.find(c => c.id === id);
+    }
+    return null;
+  }, [dbChild, loading, id, isAuthorized]);
+
+  // Load Payment History (Only for Center Admin)
+  const showBilling = profile?.role === 'center_admin' || profile?.role === 'super_admin' || isParent;
+  
   const paymentsQuery = useMemoFirebase(() => {
-    if (!db || !id) return null;
+    if (!db || !id || !showBilling) return null;
     return query(
       collection(db, "payments"), 
       where("childId", "==", id), 
       orderBy("createdAt", "desc"),
       limit(20)
     );
-  }, [db, id]);
+  }, [db, id, showBilling]);
   const { data: payments } = useCollection(paymentsQuery);
 
   useEffect(() => {
@@ -66,6 +82,19 @@ export default function ChildDetailsPage() {
       setFormattedDate(date.toLocaleDateString('ar-EG'));
     }
   }, [child]);
+
+  if (!isAuthorized) {
+    return (
+      <div className="min-h-[60vh] flex flex-col items-center justify-center space-y-4 text-center">
+        <div className="p-6 bg-rose-50 rounded-full border border-rose-100">
+           <ShieldAlert className="h-16 w-16 text-rose-500" />
+        </div>
+        <h2 className="text-2xl font-bold text-slate-800">غير مصرح لك بالوصول</h2>
+        <p className="text-slate-500 max-w-xs">هذا الملف لا يخص طفلك المسجل في النظام. تم تسجيل محاولة الوصول غير المصرح بها.</p>
+        <Button onClick={() => router.push('/dashboard')}>العودة للرئيسية</Button>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -95,15 +124,15 @@ export default function ChildDetailsPage() {
     }).format(amount || 0).replace("EGP", "ج.م");
   };
 
-  const sessionProgress = child.sessionsPurchased > 0 
-    ? (child.sessionsCompleted / child.sessionsPurchased) * 100 
+  const sessionProgress = (child.sessionsPurchased || 0) > 0 
+    ? ((child.sessionsCompleted || 0) / child.sessionsPurchased) * 100 
     : 0;
 
-  const isLowSessions = child.remainingSessions < 3;
+  const isLowSessions = (child.remainingSessions || 0) < 3;
 
   return (
     <div className="space-y-8 animate-in fade-in duration-700" dir="rtl">
-      {isLowSessions && (
+      {isLowSessions && !isParent && (
         <Alert variant="destructive" className="rounded-2xl border-rose-200 bg-rose-50 text-rose-800 animate-pulse">
           <AlertTriangle className="h-5 w-5" />
           <AlertTitle className="font-bold">تنبيه: رصيد جلسات منخفض</AlertTitle>
@@ -121,7 +150,9 @@ export default function ChildDetailsPage() {
           <div className="space-y-1">
             <h1 className="text-3xl font-bold font-headline text-slate-800">{child.fullName}</h1>
             <div className="flex items-center gap-3">
-               <Badge className="bg-primary/10 text-primary border-none rounded-lg font-bold">ملف الحالة والفوترة</Badge>
+               <Badge className="bg-primary/10 text-primary border-none rounded-lg font-bold">
+                 {isParent ? 'ملف طفلي الشخصي' : 'ملف الحالة والفوترة'}
+               </Badge>
             </div>
           </div>
         </div>
@@ -131,11 +162,13 @@ export default function ChildDetailsPage() {
           }`}>
             {child.status}
           </Badge>
-          <Badge className={`px-6 py-2 rounded-2xl text-sm font-bold shadow-sm ${
-            child.paymentStatus === 'مدفوع' ? 'bg-blue-500 text-white border-none' : 'bg-rose-500 text-white border-none'
-          }`}>
-            {child.paymentStatus}
-          </Badge>
+          {showBilling && (
+            <Badge className={`px-6 py-2 rounded-2xl text-sm font-bold shadow-sm ${
+                child.paymentStatus === 'مدفوع' ? 'bg-blue-500 text-white border-none' : 'bg-rose-500 text-white border-none'
+            }`}>
+                {child.paymentStatus}
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -170,21 +203,23 @@ export default function ChildDetailsPage() {
                     <p className="text-sm font-bold text-slate-700">{child.parentPhone}</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-slate-50 rounded-xl text-slate-400">
-                    <Calendar className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">تاريخ التسجيل</p>
-                    <p className="text-sm font-bold text-slate-700">{formattedDate || '...'}</p>
-                  </div>
-                </div>
+                {!isParent && (
+                    <div className="flex items-center gap-4">
+                        <div className="p-3 bg-slate-50 rounded-xl text-slate-400">
+                            <Calendar className="h-5 w-5" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">تاريخ التسجيل</p>
+                            <p className="text-sm font-bold text-slate-700">{formattedDate || '...'}</p>
+                        </div>
+                    </div>
+                )}
               </div>
             </CardContent>
           </Card>
 
           {/* Sessions Tracking Card */}
-          <Card className={`rounded-[2rem] border-none shadow-xl shadow-slate-200/50 p-8 space-y-6 text-white ${isLowSessions ? 'bg-rose-500' : 'bg-primary'}`}>
+          <Card className={`rounded-[2rem] border-none shadow-xl shadow-slate-200/50 p-8 space-y-6 text-white ${isLowSessions && !isParent ? 'bg-rose-500' : 'bg-primary'}`}>
             <div className="flex items-center justify-between">
               <h3 className="text-lg font-bold">تتبع الجلسات</h3>
               <RefreshCcw className="h-5 w-5 opacity-60" />
@@ -215,70 +250,69 @@ export default function ChildDetailsPage() {
 
         {/* Financial and Medical Content Column */}
         <div className="md:col-span-2 space-y-8">
-          <div className="grid gap-6 md:grid-cols-2">
-            <Card className="rounded-[2rem] border-none shadow-xl shadow-slate-200/50 bg-white p-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-4">
-                  <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
-                    <Wallet className="h-6 w-6" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-slate-800">الملخص المالي</h3>
-                    <p className="text-xs text-slate-400">حالة الدفع: {child.paymentStatus}</p>
-                  </div>
-                </div>
-                <Button size="icon" className="rounded-xl h-10 w-10 bg-emerald-500 hover:bg-emerald-600" onClick={() => setIsPaymentOpen(true)}>
-                  <Plus className="h-5 w-5 text-white" />
-                </Button>
-              </div>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center py-3 border-b border-slate-50">
-                  <span className="text-sm text-slate-500 font-medium">قيمة العقد الإجمالية</span>
-                  <span className="font-bold text-slate-800">{formatCurrency(child.totalAmount)}</span>
-                </div>
-                <div className="flex justify-between items-center py-3 border-b border-slate-50">
-                  <span className="text-sm text-slate-500 font-medium">المبلغ المدفوع</span>
-                  <span className="font-bold text-emerald-600">+{formatCurrency(child.amountPaid)}</span>
-                </div>
-                <div className="flex justify-between items-center py-3">
-                  <span className="text-sm text-slate-500 font-medium">المتبقي المطلوب</span>
-                  <span className="font-bold text-rose-600">{formatCurrency(child.remainingBalance)}</span>
-                </div>
-                <div className="pt-4">
-                   <Badge className="w-full justify-center py-2 bg-slate-50 text-slate-400 hover:bg-slate-50 border-none font-medium">
-                     موعد الاستحقاق: {child.paymentDueDate || "غير محدد"}
-                   </Badge>
-                </div>
-              </div>
-            </Card>
-
-            <Card className="rounded-[2rem] border-none shadow-xl shadow-slate-200/50 bg-white p-8 overflow-hidden">
-               <div className="flex items-center gap-4 mb-6">
-                <div className="p-3 bg-accent/10 rounded-2xl text-accent">
-                  <History className="h-6 w-6" />
-                </div>
-                <div>
-                  <h3 className="font-bold text-slate-800">سجل المدفوعات</h3>
-                  <p className="text-xs text-slate-400">آخر العمليات المالية</p>
-                </div>
-              </div>
-              <div className="space-y-3 max-h-[160px] overflow-auto pr-2 custom-scrollbar">
-                {payments && payments.length > 0 ? (
-                  payments.map(payment => (
-                    <div key={payment.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
-                      <div>
-                        <p className="text-xs font-bold text-slate-700">{payment.method}</p>
-                        <p className="text-[10px] text-slate-400">{payment.date}</p>
-                      </div>
-                      <span className="text-sm font-bold text-emerald-600">+{formatCurrency(payment.amount)}</span>
+          {showBilling && (
+            <div className="grid gap-6 md:grid-cols-2">
+                <Card className="rounded-[2rem] border-none shadow-xl shadow-slate-200/50 bg-white p-8">
+                <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-4">
+                    <div className="p-3 bg-emerald-50 rounded-2xl text-emerald-600">
+                        <Wallet className="h-6 w-6" />
                     </div>
-                  ))
-                ) : (
-                  <p className="text-center py-10 text-xs text-slate-400 italic">لا توجد مدفوعات مسجلة.</p>
-                )}
-              </div>
-            </Card>
-          </div>
+                    <div>
+                        <h3 className="font-bold text-slate-800">الملخص المالي</h3>
+                        <p className="text-xs text-slate-400">حالة الدفع: {child.paymentStatus}</p>
+                    </div>
+                    </div>
+                    {!isParent && (
+                        <Button size="icon" className="rounded-xl h-10 w-10 bg-emerald-500 hover:bg-emerald-600" onClick={() => setIsPaymentOpen(true)}>
+                            <Plus className="h-5 w-5 text-white" />
+                        </Button>
+                    )}
+                </div>
+                <div className="space-y-4">
+                    <div className="flex justify-between items-center py-3 border-b border-slate-50">
+                    <span className="text-sm text-slate-500 font-medium">قيمة العقد الإجمالية</span>
+                    <span className="font-bold text-slate-800">{formatCurrency(child.totalAmount)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3 border-b border-slate-50">
+                    <span className="text-sm text-slate-500 font-medium">المبلغ المدفوع</span>
+                    <span className="font-bold text-emerald-600">+{formatCurrency(child.amountPaid)}</span>
+                    </div>
+                    <div className="flex justify-between items-center py-3">
+                    <span className="text-sm text-slate-500 font-medium">المتبقي المطلوب</span>
+                    <span className="font-bold text-rose-600">{formatCurrency(child.remainingBalance)}</span>
+                    </div>
+                </div>
+                </Card>
+
+                <Card className="rounded-[2rem] border-none shadow-xl shadow-slate-200/50 bg-white p-8 overflow-hidden">
+                <div className="flex items-center gap-4 mb-6">
+                    <div className="p-3 bg-accent/10 rounded-2xl text-accent">
+                    <History className="h-6 w-6" />
+                    </div>
+                    <div>
+                    <h3 className="font-bold text-slate-800">سجل المدفوعات</h3>
+                    <p className="text-xs text-slate-400">آخر العمليات المالية</p>
+                    </div>
+                </div>
+                <div className="space-y-3 max-h-[160px] overflow-auto pr-2 custom-scrollbar">
+                    {payments && payments.length > 0 ? (
+                    payments.map(payment => (
+                        <div key={payment.id} className="flex justify-between items-center p-3 bg-slate-50 rounded-xl border border-slate-100">
+                        <div>
+                            <p className="text-xs font-bold text-slate-700">{payment.method}</p>
+                            <p className="text-[10px] text-slate-400">{payment.date}</p>
+                        </div>
+                        <span className="text-sm font-bold text-emerald-600">+{formatCurrency(payment.amount)}</span>
+                        </div>
+                    ))
+                    ) : (
+                    <p className="text-center py-10 text-xs text-slate-400 italic">لا توجد مدفوعات مسجلة.</p>
+                    )}
+                </div>
+                </Card>
+            </div>
+          )}
 
           <Card className="rounded-[2rem] border-none shadow-xl shadow-slate-200/50 bg-white p-8">
             <div className="flex items-center gap-3 mb-6">
@@ -308,12 +342,14 @@ export default function ChildDetailsPage() {
         </div>
       </div>
 
-      <PaymentDialog 
-        open={isPaymentOpen} 
-        onOpenChange={setIsPaymentOpen} 
-        childId={child.id} 
-        childName={child.fullName} 
-      />
+      {!isParent && (
+        <PaymentDialog 
+            open={isPaymentOpen} 
+            onOpenChange={setIsPaymentOpen} 
+            childId={child.id} 
+            childName={child.fullName} 
+        />
+      )}
     </div>
   );
 }
