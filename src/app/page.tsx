@@ -358,7 +358,7 @@ export default function LandingPage() {
 
           <div className="flex items-center gap-4">
             {user ? (
-              <Button onClick={() => router.push('/dashboard')} className="rounded-xl font-bold px-6">لوحة التحكم</Button>
+              <Button onClick={() => router.push('/login')} className="rounded-xl font-bold px-6">لوحة التحكم</Button>
             ) : (
               <>
                 <Button variant="ghost" onClick={() => router.push('/login')} className="hidden sm:flex font-bold text-slate-600">تسجيل الدخول</Button>
