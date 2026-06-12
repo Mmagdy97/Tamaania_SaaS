@@ -121,11 +121,12 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-slate-50 relative overflow-hidden p-6 sm:p-10" dir="rtl">
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-primary/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-accent/5 rounded-full blur-[120px] pointer-events-none" />
+    <div className="relative min-h-screen bg-slate-50 flex flex-col items-center justify-center py-12 px-6 sm:px-10 overflow-x-hidden" dir="rtl">
+      {/* Background Glows - Fixed to prevent layout expansion on mobile */}
+      <div className="fixed top-0 left-0 w-[500px] h-[500px] bg-primary/5 rounded-full blur-[120px] -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+      <div className="fixed bottom-0 right-0 w-[500px] h-[500px] bg-accent/5 rounded-full blur-[120px] translate-x-1/2 translate-y-1/2 pointer-events-none" />
 
-      <div className="w-full max-w-[650px] space-y-10 animate-in fade-in zoom-in duration-700">
+      <div className="relative z-10 w-full max-w-[650px] space-y-10 animate-in fade-in zoom-in duration-700">
         <div className="flex flex-col items-center gap-6 text-center">
           <div className="p-5 bg-primary rounded-[2rem] shadow-2xl shadow-primary/30 rotate-3 hover:rotate-0 transition-all duration-500 cursor-pointer group" onClick={() => router.push('/')}>
             <Heart className="h-12 w-12 text-white group-hover:scale-110 transition-transform" fill="white" />

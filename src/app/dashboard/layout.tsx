@@ -8,7 +8,7 @@ import { Loader2, Heart, Bell, UserCircle, AlertTriangle, CreditCard, LogOut, Sh
 import { Button } from "@/components/ui/button";
 import { doc } from "firebase/firestore";
 import { differenceInDays, parseISO } from "date-fns";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 
 /**
  * إعدادات حماية المسارات بناءً على الأدوار
@@ -199,6 +199,9 @@ export default function DashboardLayout({
                 </Button>
               </SheetTrigger>
               <SheetContent side="right" className="p-0 w-80 border-none shadow-2xl">
+                 <SheetHeader className="sr-only">
+                    <SheetTitle>قائمة التنقل</SheetTitle>
+                 </SheetHeader>
                  <div className="flex h-full flex-col bg-white">
                     <div className="flex h-24 items-center px-8 border-b">
                       <div className="flex items-center gap-3">
